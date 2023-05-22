@@ -1,0 +1,467 @@
+
+@author: brianwesley
+"""
+import os 
+import sys
+import time
+from time import time
+import pandas as pd
+import numpy as np
+from numpy import ndarray 
+import rpy2
+from rpy2 import robjects
+import rpy2.robjects as ro
+from rpy2.robjects import packages
+import rpy2.robjects.packages
+from rpy2.robjects.vectors import StrVector, IntVector,FloatVector
+from rpy2.robjects.packages import importr as importr
+from rpy2.robjects import pandas2ri
+from rpy2.robjects import numpy2ri
+rpy2.robjects.numpy2ri.activate()
+rpy2.robjects.pandas2ri.activate()
+from rpy2.robjects.conversion import localconverter
+
+import pyopencl as cl
+import numpy as np
+import pyopencl.array as cl_array
+import math
+import threading
+import time
+import sqlite3
+
+
+import tkinter
+from tkinter import Tk, Label, Button, LEFT, RIGHT, Menu, Entry, RAISED, BOTTOM, TOP
+from tkinter.messagebox import showinfo
+from functools import partial
+from tkinter.filedialog import askopenfilename
+import tkinter.scrolledtext as st 
+
+
+import fastnumbers 
+from fastnumbers import fast_float
+from fastnumbers import fast_real
+
+
+def exitdetails(evt):
+    print("This is an exit button press if you want to exit the application")
+    
+
+def newdetails():
+    newwin=tkinter.Tk()
+    newwin.geometry("500x200")
+    outprint="This is output"
+    lbl1=Label(newwin, text=outprint, bg="blue")
+    lbl1.pack(side=RIGHT)
+    
+path=2
+
+base=importr('base')
+utils = importr('utils')
+utils.install_packages("stats")
+utils.chooseCRANmirror(ind=1) 
+utils.install_packages("neuralnet")
+utils.chooseCRANmirror(ind=1) 
+utils.install_packages("SMFI5")
+utils.chooseCRANmirror(ind=1) 
+utils.install_packages("poisson")
+utils.chooseCRANmirror(ind=1)
+utils.install_packages("PortfolioAnalytics")
+utils.chooseCRANmirror(ind=1) 
+utils.install_packages("DEoptim")
+utils.chooseCRANmirror(ind=1) 
+utils.install_packages("ROI")
+utils.chooseCRANmirror(ind=1) 
+utils.install_packages("ROI.plugin.glpk")
+utils.chooseCRANmirror(ind=1) 
+utils.install_packages("ROI.plugin.quadprog")
+utils.chooseCRANmirror(ind=1) 
+utils.install_packages("ghyp")
+utils.chooseCRANmirror(ind=1) 
+stats=importr('stats')
+neuralnet=importr('neuralnet')
+SMFI5=importr('SMFI5')
+psn=importr('poisson')
+PortfolioAnalytics=importr('PortfolioAnalytics')
+DEoptim=importr('DEoptim')
+ROI=importr('ROI')
+ROIpluginglpk=importr('ROI.plugin.glpk')
+ROIpluginquadprog=importr('ROI.plugin.quadprog')
+ghyp=importr('ghyp')
+
+r=rpy2.robjects.r
+
+record=' '
+
+def function_pbm_pred():
+    for i in range(0,(nrow-1)): 
+        for j in range(1,6): 
+            sigma_t[i][j-1]=data[i][j]-data[i+1][j]
+    for j in range(1,6):
+        varsigma[0][j-1]=np.var(sigma_t[0:nrow-1,j-1])
+    for j in range(1,6):
+        for i in range(1,(nrow-1)):
+            S_t_pbm_pred[0][j-1]=data[0][j]+np.array(r.sqrt(varsigma[0][j-1]))*np.array(r.rnorm(1,0,1))
+            S_t_pbm_pred[i][j-1]=S_t_pbm_pred[i-1][j-1]+np.array(r.sqrt(varsigma[0][j-1]))*np.array(r.rnorm(1,0,1))
+
+
+def function_pois_pred():
+    poisson=np.array(psn.hpp_sim(365, nrow-1, 1, 0)) 
+    for j in range(1,6):
+        for i in range(1,(nrow-1)):
+            S_t_pois_pred[0][j-1]=data[0][j]+np.array(r.sqrt(varsigma[0][j-1]))*np.array(poisson[i-1])
+            S_t_pois_pred[i][j-1]=S_t_pois_pred[i-1][j-1]+np.array(r.sqrt(varsigma[0][j-1]))*np.array(poisson[i-1])
+
+def function_gbm():   
+    newwin=tkinter.Tk()
+    newwin.title("OU and GBM Estimations")
+    newwin.geometry("900x400")
+    for j in range(1,6):
+        for i in range(1,(nrow-1)):
+            mu_t[i][j-1]=np.array(r.log(data[i][j]/data[i+1][j]))
+    for j in range(1,6):
+        Amu[0][j-1]=(1/t)*np.mean(mu_t[0:nrow-1,j-1])
+        Avar[0][j-1]=(1/t)*np.var(mu_t[0:nrow-1,j-1])
+    for j in range(1,6):
+        for i in range(1,(nrow-1)):
+            S_t_gbm[0][j-1]=data[nrow-1][j]*np.array(r.exp(Amu[0][j-1]*t))
+            S_t_gbm[i][j-1]=S_t_gbm[i-1][j-1]*np.array(r.exp(Amu[0][j-1]*t))
+
+    date= pd.DataFrame({'Date': pd.date_range('2020-06-01', periods=30, freq='d')})
+    newdate=date['Date'].astype(str).values.tolist()
+    printlist1 = pd.DataFrame({'Asset1': S_t_gbm[0:30,0],'Asset2': S_t_gbm[0:30,1],'Asset3': S_t_gbm[0:30,2],'Asset4': S_t_gbm[0:30,3],'Asset5': S_t_gbm[0:30,4]},index=newdate)  
+    list_of_ints1=printlist1.to_string()
+    lbl1=Label(newwin, text=str(list_of_ints1), bg="yellow")
+    lbl1.pack(side=RIGHT) 
+    par1=np.array([[5.9173, 1.189929, 1.225427, 0.8675093, 1.171937]])
+    par2=np.array([[93.17266, 128.0467, 219.9936, 61.42001, 157.8873]])
+    for j in range(1,6):
+        for i in range(1,(nrow-1)):
+            S_t_ou[0][j-1]=data[0][j]*np.array(r.exp(-1*par1[0][j-1]*t))+par2[0][j-1]*np.array((np.array(1.0)-r.exp(-1*par1[0][j-1]*t)))
+            S_t_ou[i][j-1]=S_t_ou[i-1][j-1]*np.array(r.exp(-1*par1[0][j-1]*t))+par2[0][j-1]*np.array((np.array(1.0)-r.exp(-1*par1[0][j-1]*t)))
+   
+    date= pd.DataFrame({'Date': pd.date_range('2020-06-01', periods=30, freq='d')})
+    newdate=date['Date'].astype(str).values.tolist()
+    printlist2 = pd.DataFrame({'Asset1': S_t_ou[0:30,0],'Asset2': S_t_ou[0:30,1],'Asset3': S_t_ou[0:30,2],'Asset4': S_t_ou[0:30,3],'Asset5': S_t_ou[0:30,4]},index=newdate)  
+    list_of_ints2=printlist2.to_string()
+    lbl2=Label(newwin, text=str(list_of_ints2), bg="orange")
+    lbl2.pack(side=LEFT) 
+
+              
+
+#calculate daily returns here#
+
+
+def accelerate_returns_optimization(label_result,n1,n2,n3):
+    
+    num2=n2.get()
+    prob_returnexpectations=fast_float(num2)
+    num3=n3.get()
+    number2=fast_float(num3)
+    number1=fast_float(1.0)
+    prob_exceedingloss=number1-number2
+    factor=1   
+    #prob_exceedingloss=0.95
+    #prob_returnexpectations=0.30
+    
+    
+    #newwin=tkinter.Tk()
+    #newwin.geometry("700x200")
+       
+    for i in range(0,(nrow-2)):
+        Areturns[i][0]=((data[i+1][1]-data[i][1])/data[i][1])
+        Breturns[i][0]=((data[i+1][2]-data[i][2])/data[i][2])
+        Creturns[i][0]=((data[i+1][3]-data[i][3])/data[i][3])
+        Dreturns[i][0]=((data[i+1][4]-data[i][4])/data[i][4])
+        Ereturns[i][0]=((data[i+1][5]-data[i][5])/data[i][5])
+
+    returnmatrix=np.concatenate((Areturns, Breturns,Creturns,Dreturns,Ereturns), axis=1)
+    averagereturnA=np.mean(Areturns)
+    averagereturnB=np.mean(Breturns)
+    averagereturnC=np.mean(Creturns)
+    averagereturnD=np.mean(Dreturns)
+    averagereturnE=np.mean(Ereturns)
+    averagereturns=np.mean(np.array([averagereturnA,averagereturnB,averagereturnC,averagereturnD,averagereturnE]))
+    
+    aug=(np.array(1.0)-(np.array(r.qnorm(prob_returnexpectations))/np.array(r.qnorm(prob_exceedingloss))))
+    aug_averagereturns=returnmatrix*aug
+    targetportfolioreturn=np.array(factor)*averagereturns*aug
+    date= pd.DataFrame({'Date': pd.date_range('2020-01-01', periods=1000, freq='d')})
+    newdate=date['Date'].astype(str).values.tolist()
+    ReturnsData = pd.DataFrame({'Asset1': aug_averagereturns[0:1000,0],'Asset2': aug_averagereturns[0:1000,1],'Asset3': aug_averagereturns[0:1000,2],'Asset4': aug_averagereturns[0:1000,3],'Asset5': aug_averagereturns[0:1000,4]},index=newdate)
+    ReturnsData_r = rpy2.robjects.pandas2ri.py2ri(ReturnsData)
+    targetportfolioreturn_r =rpy2.robjects.pandas2ri.py2ri(pd.DataFrame(targetportfolioreturn))
+    aug=(np.array(1.0)-(np.array(r.qnorm(prob_returnexpectations))/np.array(r.qnorm(prob_exceedingloss))))
+    aug_averagereturns=returnmatrix*aug
+    targetportfolioreturn=np.array(factor)*averagereturns*aug
+    date= pd.DataFrame({'Date': pd.date_range('2020-01-01', periods=1000, freq='d')})
+    newdate=date['Date'].astype(str).values.tolist()
+    ReturnsData = pd.DataFrame({'Asset1': aug_averagereturns[0:1000,0],'Asset2': aug_averagereturns[0:1000,1],'Asset3': aug_averagereturns[0:1000,2],'Asset4': aug_averagereturns[0:1000,3],'Asset5': aug_averagereturns[0:1000,4]},index=newdate)
+    ReturnsData_r = rpy2.robjects.pandas2ri.py2ri(ReturnsData)
+    targetportfolioreturn_r =rpy2.robjects.pandas2ri.py2ri(pd.DataFrame(targetportfolioreturn))
+    funds= r.c("Asset1", "Asset2", "Asset3", "Asset4", "Asset5")
+    init=PortfolioAnalytics.portfolio_spec(assets=funds)
+    init=PortfolioAnalytics.add_constraint(portfolio=init,type="weight_sum", min_sum=1, max_sum=1)
+    init=PortfolioAnalytics.add_constraint(portfolio=init,type="box",min=0,max=1)
+    init=PortfolioAnalytics.add_constraint(portfolio=init, type="return", return_target=targetportfolioreturn)
+    minvar=PortfolioAnalytics.add_objective(portfolio=init, type="risk", name="var")
+    opt_minvar=PortfolioAnalytics.optimize_portfolio(R=ReturnsData, portfolio=minvar, optimize_method="ROI", trace="TRUE")
+    weightallocation=(opt_minvar.rx('weights'))
+    optimalportfoliorisk=(opt_minvar.rx('objective_measures'))
+    stddev=(optimalportfoliorisk.rx('StdDev'))
+    x=(rpy2.robjects.pandas2ri.ri2py(weightallocation))
+    y=(rpy2.robjects.pandas2ri.ri2py(optimalportfoliorisk))
+    printlistx=pd.DataFrame(np.array(x[0]), columns=['Portfolio Allocation'], index=['Asset 1','Asset 2', 'Asset 3', 'Asset 4', 'Asset 5'])
+   # lbl1=Label(newwin, text="Portfolio Weights Obtained From the Hybrid Predictive Prototype by Quadratic Optimization", bg="yellow")
+   # lbl1.pack(side=LEFT)
+   # lbl2=Label(newwin, text=str(printlistx), bg="yellow")
+   # lbl2.pack(side=LEFT)
+    
+    label_result.config(text=str(printlistx),font=('Helvetica',14,'bold'), bg="yellow")  
+    return  
+    
+def opendata():
+    newwin=tkinter.Tk()
+    newwin.title("Entered Data Summary")
+    newwin.geometry("800x400")
+    text_area = st.ScrolledText(newwin, width = 200,  height = 100, font = ("Times New Roman", 15)) 
+    text_area.pack(side=LEFT) 
+    
+    printlistdata=dataimport
+    list_of_data=printlistdata.to_string()
+    text_area.insert(tkinter.INSERT,str(list_of_data))
+    text_area.configure(state ='disabled')
+    # lbldata=Label(newwin, text=str(list_of_data), bg="white")
+    #lbldata.pack(side=LEFT) 
+    
+def neuralnetworkplots():
+    date= pd.DataFrame({'Date': pd.date_range('2020-01-01', periods=(nrow-1), freq='d')})
+    newdate=date['Date'].astype(str).values.tolist()
+    Adatatest = pd.DataFrame({'Asset1': Asim1[0:nrow-1],'Asset2': Asim1[0:nrow-1],'Asset3': Asim2[0:nrow-1]},index=newdate).head()
+    Adatatrain=pd.DataFrame({'Asset1': Asim1[0:nrow-1],'Asset2': Asim1[0:nrow-1],'Asset3': Asim2[0:nrow-1]},index=newdate).head()
+    Bdatatrain=pd.DataFrame({'Asset1': Bsim1[0:nrow-1],'Asset2': Bsim1[0:nrow-1],'Asset3': Bsim2[0:nrow-1]},index=newdate).head()
+    Cdatatrain=pd.DataFrame({'Asset1': Csim1[0:nrow-1],'Asset2': Csim1[0:nrow-1],'Asset3': Csim2[0:nrow-1]},index=newdate).head()
+       
+    with localconverter(ro.default_converter + pandas2ri.converter):
+        r_Adatatrain = ro.conversion.py2ro(Adatatrain)
+        r_Bdatatrain = ro.conversion.py2ro(Bdatatrain)
+        r_Cdatatrain = ro.conversion.py2ro(Cdatatrain)
+     #   r_Adatatrain = ro.conversion.py2ro(Ddatatrain)
+      #  r_Adatatrain = ro.conversion.py2ro(Edatatrain)
+    
+    ANM=neuralnet.neuralnet("Asset1~Asset2+Asset3", r_Adatatrain, hidden=5,threshold=0.01, rep=1)
+    BNM=neuralnet.neuralnet("Asset1~Asset2+Asset3", r_Bdatatrain, hidden=5,threshold=0.01, rep=1)
+    CNM=neuralnet.neuralnet("Asset1~Asset2+Asset3", r_Cdatatrain, hidden=5,threshold=0.01, rep=1)
+    r.plot(ANM)
+    r.plot(BNM)
+    r.plot(CNM)
+  
+def saveindatabase(k1,k2,k3):
+    newwin=tkinter.Tk()
+    newwin.title("Saved Results")
+    newwin.geometry("200x200")
+    lblm=Label(newwin, text='Session Results Have Been Saved', bg="orange")
+    lblm.pack(side=LEFT) 
+      
+    con = sqlite3.connect('newdatabase9.db')
+    cur = con.cursor()
+    cur.execute("""CREATE TABLE Results (Return,Probability,VaR, Allocations)""")
+    
+    numx1=str(k1.get())
+    numx2=str(k2.get())
+    numx3=str(k3.get())
+        
+    record = (numx1,numx2, numx3,0)
+    cur.execute("INSERT INTO Results VALUES (?, ?, ?)", record)
+    con.commit()
+    #con = sqlite3.connect('newdatabase7.db')
+  #  cur = con.cursor()
+
+    cur.execute('SELECT * FROM Results') 
+    x=cur.fetchall()
+    tkinter.Tk().withdraw() 
+    f=tkinter.filedialog.asksaveasfile(mode="w", defaultextension=".txt")
+    text2save=str(x)
+    f.write(text2save)
+    f.close()
+
+def viewstoredresults():
+    #y
+    x=[('0.23','0.45','0.55', '5'),('0.34','0.55','0.45', 4)]
+    tkinter.Tk().withdraw() 
+    f=tkinter.filedialog.asksaveasfile(mode="w", defaultextension=".txt")
+    text2save=str(x)
+    f.write(text2save)
+    f.close()
+   
+    
+
+    
+    
+if __name__=="__main__":
+         
+    mainwin=Tk()
+    mainwin.title("Hybrid Portfolio Allocation Prototype")
+    mainwin.geometry("1300x600")
+    label1=Label(mainwin, anchor='e', relief =RAISED, text="Probability-based Portfolio Allocation Hybrid Prototype",font=('Helvetica',18,'bold italic'), bg="yellow")
+    label1.grid(row=0, column=0)
+    label2=Label(mainwin,anchor='e', relief =RAISED,text="Input CSV Data of 5 assets maximum)",font=('Helvetica',12,'bold'), bg="orange")
+    label2.grid(row=10, column=0)
+    databutton=Button(mainwin,text="View Selected Data",font=('Helvetica',12,'bold'), bg="white", command=opendata)
+    databutton.grid(row=10, column=1)
+        
+    label3=Label(mainwin,anchor='e',relief =RAISED, text="Input Target Portfolio Return (%)",font=('Helvetica',12,'bold'), bg="orange")
+    label3.grid(row=11, column=0)
+    targetreturnentrycontent= tkinter.StringVar()
+    targetreturnentry=Entry(mainwin,textvariable=targetreturnentrycontent)
+    #targetreturnentry.insert(0,"0.1")
+    targetreturnentry.grid(row=11, column=1)
+    
+    label4=Label(mainwin, anchor='e', relief =RAISED,text="Input Expectation Probability of Target Return Attainment(%)",font=('Helvetica',12,'bold'), bg="orange")
+    label4.grid(row=12, column=0)
+    targetprobabilitycontent= tkinter.StringVar()
+    targetprobability=Entry(mainwin,textvariable=targetprobabilitycontent)
+    #targetprobability.insert(0,"0.001")
+    targetprobability.grid(row=12, column=1)
+    
+    label5=Label(mainwin, anchor='e', relief =RAISED,text="Input Probability Level of Zero-loss Exceedance (VaR %)",font=('Helvetica',12,'bold'), bg="orange")
+    label5.grid(row=13, column=0)
+    varprobabilitycontent= tkinter.StringVar()
+    varprobability=Entry(mainwin,textvariable=varprobabilitycontent)
+    #varprobability.insert(0,"0.95")
+    varprobability.grid(row=13, column=1)
+    
+    label5=Label(mainwin, anchor='e', relief =RAISED,text="Input Investment Duration in Months",font=('Helvetica',12,'bold'), bg="orange")
+    label5.grid(row=14, column=0)
+    duration=Entry(mainwin)
+    duration.grid(row=14, column=1)
+    
+    labelz=Label(mainwin)
+    labelz.grid(row=16, column=0)
+        
+    allocationbutton=Button(mainwin,text="View OU/GBM Estimation",font=('Helvetica',12,'bold'), bg="white", command=function_gbm)
+    allocationbutton.grid(row=15, column=1)
+    predictionbutton=Button(mainwin,text="Perform Allocation",font=('Helvetica',12,'bold'), bg="white", command=partial(accelerate_returns_optimization,labelz, targetreturnentrycontent,targetprobabilitycontent,varprobabilitycontent))
+    predictionbutton.grid(row=16, column=1)
+    plotpredictionbutton=Button(mainwin,text="View Neural Network Plots",font=('Helvetica',12,'bold'), bg="white", command=neuralnetworkplots)
+    plotpredictionbutton.grid(row=17, column=1)
+    previouspredictionbutton=Button(mainwin,text="Save Current Session Results",font=('Helvetica',12,'bold'), bg="white", command=partial(saveindatabase, targetreturnentrycontent,targetprobabilitycontent,varprobabilitycontent))
+    previouspredictionbutton.grid(row=18, column=1)
+    #previousallocationbutton=Button(mainwin,text="View All Session Results",font=('Helvetica',12,'bold'), bg="white", command=viewstoredresults)
+    #previousallocationbutton.grid(row=19, column=1)
+    savebutton=Button(mainwin,text="View All Session Results",font=('Helvetica',12,'bold'), bg="white", command=viewstoredresults)
+    savebutton.grid(row=20, column=0)
+    #savebutton=Button(mainwin,text="Export Results of Current Session to Excel CSV",font=('Helvetica',12,'bold'), bg="green", command=newdetails)
+   # savebutton.grid(row=20, column=0)  
+    exit_button=Button(mainwin, text='Exit',font=('Helvetica',12,'bold'), bg="red", command=mainwin.destroy)
+    exit_button.grid(row=21, column=1)
+    #new_window_button=Button(mainwin, text='Refresh Session',font=('Helvetica',12,'bold'), bg="blue", command=newdetails)
+    #new_window_button.grid(row=21, column=1)
+    
+    infolabel1=Label(mainwin, text="This robo-financial advisor prototype adopts a hybrid programming architecture",font=('Helvetica',11,'bold italic'), bg="white")
+    infolabel1.grid(row=24, column=0)
+    infolabel2=Label(mainwin, text="and uses machine learning and probability-based quadratic programming techniques",font=('Helvetica',11,'bold italic'), bg="white")
+    infolabel2.grid(row=25, column=0)
+    infolabel3=Label(mainwin, text="to provide an optimal portfolio allocation strategy that will maximize the returns",font=('Helvetica',11,'bold italic'), bg="white")
+    infolabel3.grid(row=26, column=0)
+    infolabel4=Label(mainwin, text="of investors for the prescribed investment horizons and budget constraints.",font=('Helvetica',11,'bold italic'), bg="white")
+    infolabel4.grid(row=27, column=0)
+    
+    Tk().withdraw() 
+    filename = askopenfilename() 
+    dataimport=pd.read_csv(filename)
+    data=np.array(dataimport)
+    ncol=data.shape[1]
+    nrow=data.shape[0]
+    tau=1/365
+    t=1/nrow
+    S_t_ou=np.zeros(((nrow-1),(ncol-1)))
+    S_t_ou_pred=np.zeros(((nrow-1),(ncol-1)))
+    S_t_gbm=np.zeros(((nrow-1),(ncol-1)))
+    S_t_pbm_pred=np.zeros(((nrow-1),(ncol-1)))
+    S_t_pois_pred=np.zeros(((nrow-1),(ncol-1)))
+    mu_t=np.zeros(((nrow-1),(ncol-1)))
+    sigma_t=np.zeros(((nrow-1),(ncol-1)))
+
+    Amu=np.zeros((1,(ncol-1)))
+    Avar=np.zeros((1,(ncol-1)))
+    varsigma=np.zeros((1,(ncol-1)))
+    par1=np.zeros((1,(ncol-1)))
+    par2=np.zeros((1,(ncol-1)))
+    poisson=np.zeros(((nrow-1),1))
+    Areturns=np.zeros(((nrow-2),1))
+    Breturns=np.zeros(((nrow-2),1))
+    Creturns=np.zeros(((nrow-2),1))
+    Dreturns=np.zeros(((nrow-2),1))
+    Ereturns=np.zeros(((nrow-2),1))   
+        
+    Asim1=S_t_gbm[0:nrow-1,0]
+    Asim2=S_t_ou[0:nrow-1,0]
+    Atrueval=data[0:nrow-1,1]
+
+    Bsim1=S_t_gbm[0:nrow-1,1]
+    Bsim2=S_t_ou[0:nrow-1,1]
+    Btrueval=data[0:nrow-1,2]
+
+    Csim1=S_t_gbm[0:nrow-1,2]
+    Csim2=S_t_ou[0:nrow-1,2]
+    Ctrueval=data[0:nrow-1,3]
+
+    Dsim1=S_t_gbm[0:nrow-1,3]
+    Dsim2=S_t_ou[0:nrow-1,3]
+    Dtrueval=data[0:nrow-1,4]
+
+    Esim1=S_t_gbm[0:nrow-1,4]
+    Esim2=S_t_ou[0:nrow-1,4]
+    Etrueval=data[0:nrow-1,5]
+
+    AdataF=np.array([Atrueval,Asim1, Asim2])
+    Adata=AdataF.transpose()
+    Adatarows=nrow-1
+    BdataF=np.concatenate((Btrueval, Bsim1, Bsim2), axis=0)
+    Bdata=BdataF.transpose()
+    Bdatarows=nrow-1
+    CdataF=np.concatenate((Ctrueval, Csim1, Csim2), axis=0)
+    Cdata=CdataF.transpose()
+    Cdatarows=nrow-1
+    DdataF=np.concatenate((Dtrueval, Dsim1, Dsim2), axis=0)
+    Ddata=DdataF.transpose()
+    Ddatarows=nrow-1
+    EdataF=np.concatenate((Etrueval, Esim1, Esim2), axis=0)
+    Edata=EdataF.transpose()
+    Edatarows=nrow-1     
+    
+           
+    
+    mainwin.mainloop()
+    
+    
+    
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
